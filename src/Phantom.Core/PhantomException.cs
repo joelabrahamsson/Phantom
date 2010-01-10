@@ -64,4 +64,20 @@ namespace Phantom.Core {
 			: base(string.Format("Operation exited with exit code {0}.", exitCode)) {
 		}
 	}
+
+    public class SiteAlreadyExistsException : PhantomException
+    {
+        public SiteAlreadyExistsException(string siteName)
+            : base(string.Format("There is already a site with the name {0}.", siteName))
+        {
+        }
+    }
+
+    public class StringIsNullOrEmptyException : PhantomException
+    {
+        public StringIsNullOrEmptyException(string stringName)
+            : base(string.Format("The sting {0} can't be null or empty.", stringName))
+        {
+        }
+    }
 }

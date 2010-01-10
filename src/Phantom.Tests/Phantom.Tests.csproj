@@ -47,6 +47,10 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\lib\nant\log4net.dll</HintPath>
     </Reference>
+    <Reference Include="Microsoft.Web.Administration, Version=7.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\lib\iis7\Microsoft.Web.Administration.dll</HintPath>
+    </Reference>
     <Reference Include="NAnt.Core, Version=0.85.2478.0, Culture=neutral">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\lib\nant\NAnt.Core.dll</HintPath>
@@ -80,6 +84,7 @@
     <Compile Include="ExecTester.cs" />
     <Compile Include="FileCopyTester.cs" />
     <Compile Include="GlobalsTester.cs" />
+    <Compile Include="IIS7Tester.cs" />
     <Compile Include="ImportTester.cs" />
     <Compile Include="IncludeTester.cs" />
     <Compile Include="NantIntegrationTester.cs" />
@@ -107,6 +112,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="Scripts\FileCopy.boo">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Scripts\IIS7.boo">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="Scripts\Import.boo">
