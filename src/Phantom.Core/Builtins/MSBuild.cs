@@ -25,11 +25,19 @@ namespace Phantom.Core.Builtins {
 	/// </summary>
 	public class msbuild : ExecutableTool<msbuild> {
 		public msbuild() {
-			toolPath = Path.Combine(Environment.GetEnvironmentVariable("windir"), "Microsoft.NET/Framework/v3.5/msbuild.exe");
+			toolPath = BuildMsbuildPath("3.5");
 			configuration = "debug";
 			verbosity = "minimal";
 			targets = new[] {"build"};
 			properties = new Hash();
+		}
+
+		private string BuildMsbuildPath(string version) {
+			if(version == "4.0" || version == "4") {
+				version = "4.0.30319";
+			}
+
+			return Path.Combine(Environment.GetEnvironmentVariable("windir"), "Microsoft.NET/Framework/v" + version + "/msbuild.exe");
 		}
 
 		public string configuration { get; set; }
@@ -37,6 +45,16 @@ namespace Phantom.Core.Builtins {
 		public string verbosity { get; set; }
 		public Hash properties { get; set; }
 		public string file { get; set; }
+		
+		string _version;
+
+		public string version {
+			get { return _version; }
+			set {
+				_version = value;
+				toolPath = BuildMsbuildPath(value);
+			}
+		}
 
 		protected override void Execute() {
 			if (string.IsNullOrEmpty(file)) {
@@ -46,7 +64,7 @@ namespace Phantom.Core.Builtins {
 			string args = file + " /p:Configuration=" + configuration + " /t:" + string.Join(";", targets) + " /v:" + verbosity;
 
 			foreach (DictionaryEntry entry in properties) {
-				args += "/p:" + entry.Key + "=" + entry.Value;
+				args += " /p:" + entry.Key + "=" + entry.Value;
 			}
 
 			Execute(args);

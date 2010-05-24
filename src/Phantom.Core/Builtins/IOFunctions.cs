@@ -24,35 +24,42 @@ namespace Phantom.Core.Builtins {
 	[CompilerGlobalScope]
 	public sealed class IOFunctions {
 		/// <summary>
-		/// Executes the specified program with the specified arguments
+		///   Executes the specified program with the specified arguments
 		/// </summary>
-		/// <param name="command">The command to execute</param>
+		/// <param name="command">
+		///   The command to execute
+		/// </param>
 		/// <param name="args">Additional args</param>
 		public static void exec(string command, string args) {
 			exec(command, args, new Hash());
 		}
 
 		/// <summary>
-		/// Executes the specified program with the specified arguments.  You can also
-		/// specify the working directory of the command by providing the hash option "WorkingDir"
+		///   Executes the specified program with the specified arguments.  You can also
+		///   specify the working directory of the command by providing the hash option "WorkingDir"
 		/// </summary>
-		/// <param name="command">The command to execute</param>
+		/// <param name="command">
+		///   The command to execute
+		/// </param>
 		/// <param name="args">Additional args</param>
-		/// <param name="options">A hash of options to set on the process (like WorkingDir)</param>
+		/// <param name="options">
+		///   A hash of options to set on the process (like WorkingDir)
+		/// </param>
 		public static void exec(string command, string args, Hash options) {
 			string workingDir = options.ObtainAndRemove("WorkingDir", ".");
 			bool ignoreNonZeroExitCode = options.ObtainAndRemove("IgnoreNonZeroExitCode", false);
 			var psi = new ProcessStartInfo(command, args) {
-			                                              	WorkingDirectory = workingDir,
-			                                              	UseShellExecute = false,
-			                                              	RedirectStandardError = true
-			                                              };
+				WorkingDirectory = workingDir,
+				UseShellExecute = false,
+				RedirectStandardError = true
+			};
 			var process = Process.Start(psi);
 			process.WaitForExit();
 			var exitCode = process.ExitCode;
 
 			if (exitCode != 0 && ignoreNonZeroExitCode == false) {
-				throw new ExecutionFailedException(exitCode);
+			    var errortext = process.StandardError.ReadAllAsString();
+                throw new ExecutionFailedException(exitCode, errortext);
 			}
 		}
 
@@ -68,7 +75,7 @@ namespace Phantom.Core.Builtins {
 		}
 
 		/// <summary>
-		/// Copies a file from one location to another.
+		///   Copies a file from one location to another.
 		/// </summary>
 		/// <param name="source">Source file</param>
 		/// <param name="destination">Destination</param>
@@ -78,9 +85,11 @@ namespace Phantom.Core.Builtins {
 		}
 
 		/// <summary>
-		/// Deletes a file or directory
+		///   Deletes a file or directory
 		/// </summary>
-		/// <param name="file">File or directory to delete</param>
+		/// <param name="file">
+		///   File or directory to delete
+		/// </param>
 		public static void rm(FileSystemInfo file) {
 			if (file != null && file.Exists) {
 				rm(file.FullName);
@@ -88,9 +97,11 @@ namespace Phantom.Core.Builtins {
 		}
 
 		/// <summary>
-		/// Deletes a file or directory
+		///   Deletes a file or directory
 		/// </summary>
-		/// <param name="path">File or directory to delete</param>
+		/// <param name="path">
+		///   File or directory to delete
+		/// </param>
 		public static void rm(string path) {
 			if (Directory.Exists(path)) {
 				Console.WriteLine("Deleting directory '{0}'", path);
@@ -103,7 +114,7 @@ namespace Phantom.Core.Builtins {
 		}
 
 		/// <summary>
-		/// Deletes a file or directory.
+		///   Deletes a file or directory.
 		/// </summary>
 		/// <param name="path"></param>
 		[Obsolete("use 'rm' instead or 'rmdir'")]
@@ -120,16 +131,8 @@ namespace Phantom.Core.Builtins {
 
 		static void DeleteDirectory(string path) {
 			var dirInfo = new DirectoryInfo(path);
-
-			foreach (var dir in dirInfo.GetDirectories()) {
-				DeleteDirectory(dir.FullName);
-			}
-
-			foreach (var file in dirInfo.GetFiles()) {
-				DeleteFile(file.FullName);
-			}
-
-			Directory.Delete(path);
+			SetAttributesNormal(dirInfo);
+			dirInfo.Delete(true);
 		}
 
 		static void DeleteFile(string path) {
@@ -145,9 +148,28 @@ namespace Phantom.Core.Builtins {
 			File.Delete(path);
 		}
 
+		/// <summary>
+		///   The Delete() method will fail with UnauthorizedAccessException if any files in the directory tree have the read-only flag. 
+		///   Delete() cannot delete anything with read-only flag even if the user running the application has priviliges to delete these files.
+		/// </summary>
+		/// <param name="dir"></param>
+		static void SetAttributesNormal(DirectoryInfo dir) {
+			// Remove flags from the current directory
+			dir.Attributes = FileAttributes.Normal;
+
+			// Remove flags from all files in the current directory
+			foreach (FileInfo file in dir.GetFiles()) {
+				file.Attributes = FileAttributes.Normal;
+			}
+
+			// Do the same for all subdirectories
+			foreach (DirectoryInfo subDir in dir.GetDirectories()) {
+				SetAttributesNormal(subDir);
+			}
+		}
 
 		/// <summary>
-		/// Creates a directory if it does not exist.
+		///   Creates a directory if it does not exist.
 		/// </summary>
 		public static void mkdir(string path) {
 			Console.WriteLine("Creating directory '{0}'", path);
