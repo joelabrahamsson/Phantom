@@ -19,9 +19,6 @@ namespace Phantom.Core {
 
 	public abstract class WrappedFileSystemInfo : FileSystemInfo {
 		readonly FileSystemInfo inner;
-		protected string BaseDir { get; private set; }
-		protected string MatchedPath { get; private set; }
-		protected bool Flatten { get; private set; }
 
 		protected WrappedFileSystemInfo(string baseDir, string originalPath, FileSystemInfo inner, bool flatten) {
 			this.inner = inner;
@@ -30,9 +27,9 @@ namespace Phantom.Core {
 			Flatten = flatten;
 		}
 
-		public override void Delete() {
-			inner.Delete();
-		}
+		protected string BaseDir { get; private set; }
+		protected string MatchedPath { get; private set; }
+		protected bool Flatten { get; private set; }
 
 		public override string Name {
 			get { return inner.Name; }
@@ -46,14 +43,18 @@ namespace Phantom.Core {
 			get { return inner.FullName; }
 		}
 
+		protected string PathWithoutBaseDirectory {
+			get { return MatchedPath.Substring(BaseDir.Length).Trim('/').Trim('\\'); }
+		}
+
+		public override void Delete() {
+			inner.Delete();
+		}
+
 		public abstract void CopyToDirectory(string path);
 
 		public override string ToString() {
 			return FullName;
-		}
-
-		protected string PathWithoutBaseDirectory {
-			get { return MatchedPath.Substring(BaseDir.Length).Trim('/'); }
 		}
 	}
 
@@ -72,15 +73,12 @@ namespace Phantom.Core {
 			}
 			else {
 				var combinedPath = Path.Combine(path, PathWithoutBaseDirectory);
+				var newPath = Path.GetDirectoryName(combinedPath);
+				if (!Directory.Exists(newPath)) {
+					Directory.CreateDirectory(newPath);
+				}
 				File.Copy(FullName, combinedPath, true);
 			}
-			//ensure all segments of "path" exist
-			//all subdirectories in current file's path
-
-			//baseDir -> "SubDirectory"
-			//path -> SubDirectory/SubDirectory2/Foo.txt
-			//FullPath....
-			//pathWithoutBaseDir -> SubDirectory2/Foo.txt
 		}
 	}
 
@@ -90,9 +88,8 @@ namespace Phantom.Core {
 
 		public override void CopyToDirectory(string path) {
 			if (Flatten) return; //copying directories is a no-op when flattened.
-
 			var combinedPath = Path.Combine(path, PathWithoutBaseDirectory);
-			if (! Directory.Exists(combinedPath)) {
+			if (!Directory.Exists(combinedPath)) {
 				Directory.CreateDirectory(combinedPath);
 			}
 		}
