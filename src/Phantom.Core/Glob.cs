@@ -383,7 +383,7 @@ namespace Phantom.Core {
 
 		[ExcludeFromCoverage]
         private sealed class GlobMatcher {
-            readonly PlatformAdaptationLayer/*!*/ _pal;
+            readonly IFileAdaptionLayer/*!*/ _pal;
             readonly string/*!*/ _pattern;
             readonly int _flags;
             readonly bool _dirOnly;
@@ -398,7 +398,8 @@ namespace Phantom.Core {
 			}
 
 
-            internal GlobMatcher(PlatformAdaptationLayer/*!*/ pal, string/*!*/ pattern, int flags) {
+            internal GlobMatcher(IFileAdaptionLayer pal, string/*!*/ pattern, int flags)
+            {
                 _pal = pal;
                 _pattern = (pattern == "**") ? "*" : pattern;
                 _flags = flags | Constants.FNM_CASEFOLD;
@@ -531,7 +532,8 @@ namespace Phantom.Core {
             }
         }
 
-        public static IEnumerable<string>/*!*/ GlobResults(PlatformAdaptationLayer/*!*/ pal, string/*!*/ pattern, int flags) {
+        public static IEnumerable<string>/*!*/ GlobResults(IFileAdaptionLayer pal, string/*!*/ pattern, int flags)
+        {
             if (pattern.Length == 0) {
                 yield break;
             }
@@ -555,7 +557,8 @@ namespace Phantom.Core {
     }
 
 	[Serializable, ExcludeFromCoverage]
-	internal class PlatformAdaptationLayer {
+    internal class PlatformAdaptationLayer : IFileAdaptionLayer
+    {
 		// Fields
 		public static readonly PlatformAdaptationLayer Default = new PlatformAdaptationLayer();
 

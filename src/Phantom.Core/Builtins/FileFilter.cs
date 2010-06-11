@@ -25,9 +25,17 @@ namespace Phantom.Core.Builtins
             return this;
         }
 
-        public FileFilter IncludeAll() 
+        public FileFilter IncludeEverything() 
         {
             includes.Add("**/*");
+            return this;
+        }
+
+        public FileFilter IncludeEveryThingInDirectory(string path)
+        {
+            if (!path.EndsWith("/") || !path.EndsWith("\\"))
+                path += "/";
+            includes.Add(path + "**/*");
             return this;
         }
 
@@ -83,7 +91,7 @@ namespace Phantom.Core.Builtins
 
                         var combinedPath = Path.Combine(ftpFolder.Folder, fileSystemInfo.PathWithoutBaseDirectory);
                         var newPath = Path.GetDirectoryName(combinedPath);
-                        if (!ftp.DirectoryExists(newPath))) {
+                        if (!ftp.DirectoryExists(newPath)) {
                             ftp.CreateDirectory(newPath);
                             ftp.SetCurrentDirectory("newPath");
                         }
@@ -96,9 +104,24 @@ namespace Phantom.Core.Builtins
             return this;
         }
 
-        public void Delete(string sourceDirectory)
+        public void Delete(FtpFolder ftpFolder)
         {
-            foreach (WrappedFileSystemInfo fileSystemInfo in GetFilesAndFolders(sourceDirectory)) {
+            using (FtpConnection ftpConnection = new FtpConnection(ftpFolder.ServerAddress, ftpFolder.Username, ftpFolder.Password)) 
+            {
+                ftpConnection.Open();
+                foreach (WrappedFileSystemInfo fileSystemInfo in GetFtpFilesAndFolders(ftpFolder.Folder,ftpConnection)) {
+                    fileSystemInfo.Delete();
+                }
+                ftpConnection.Close();
+                ftpConnection.Dispose();
+            }
+
+        }
+
+        public void DeleteFromFtp(string sourceDirectory)
+        {
+            foreach (WrappedFileSystemInfo fileSystemInfo in GetFilesAndFolders(sourceDirectory))
+            {
                 fileSystemInfo.Delete();
             }
 
@@ -129,6 +152,31 @@ namespace Phantom.Core.Builtins
                 else
                 {
                     yield return new WrappedFileInfo(baseDir, path, false);
+                }
+            }
+        }
+
+        public IEnumerable<WrappedFileSystemInfo> GetFtpFilesAndFolders(string baseFolder, FtpConnection ftpConnection) 
+        {
+            FtpFileAdaptionLayer ftpFileAdaptionLayer = new FtpFileAdaptionLayer(ftpConnection);
+
+            var includedFiles = from include in includes
+                                from file in Glob.GlobResults(ftpFileAdaptionLayer, FixupPath(baseFolder, include), 0)
+                                select file;
+
+            var excludesFiles = from exclude in excludes
+                                from file in Glob.GlobResults(ftpFileAdaptionLayer, FixupPath(baseFolder, exclude), 0)
+                                select file;
+
+            foreach (var path in includedFiles.Except(excludesFiles))
+            {
+                if (Directory.Exists(path))
+                {
+                    yield return new WrappedDirectoryInfo(baseFolder, path, false);
+                }
+                else
+                {
+                    yield return new WrappedFileInfo(baseFolder, path, false);
                 }
             }
         }
