@@ -43,7 +43,7 @@ namespace Phantom.Core {
 			get { return inner.FullName; }
 		}
 
-		protected string PathWithoutBaseDirectory {
+		public string PathWithoutBaseDirectory {
 			get { return MatchedPath.Substring(BaseDir.Length).Trim('/').Trim('\\'); }
 		}
 
