@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace Phantom.Core
 {
@@ -11,7 +9,7 @@ namespace Phantom.Core
     [Serializable, ExcludeFromCoverage]
     internal class FtpFileAdaptionLayer : IFileAdaptionLayer
     {
-        private FtpConnection _ftpConnection;
+        FtpConnection _ftpConnection;
         public FtpFileAdaptionLayer(FtpConnection ftpConnection) {
             _ftpConnection = ftpConnection;
         }
@@ -28,7 +26,7 @@ namespace Phantom.Core
 
         public virtual string[] GetDirectories(string path, string searchPattern)
         {
-            return _ftpConnection.GetDirectories(path).Select(info => info.FullName).ToArray();
+            return _ftpConnection.GetDirectories(path).Select(info => path.TrimEnd('.') + info.Name).ToArray();
         }
 
         public virtual string GetFileName(string file)
@@ -38,7 +36,7 @@ namespace Phantom.Core
 
         public string[] GetFiles(string path, string searchPattern)
         {
-            return _ftpConnection.GetFiles(path).Select(file => file.FullName).ToArray();
+            return _ftpConnection.GetFiles(path).Select(file => path.TrimEnd('.') + file.Name).ToArray();
         }
        
     }

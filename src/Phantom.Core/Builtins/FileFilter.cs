@@ -1,10 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace Phantom.Core.Builtins
 {
+    using System;
     using System.IO;
     using FtpLib;
 
@@ -73,52 +72,145 @@ namespace Phantom.Core.Builtins
         }
 
 
-        public FileFilter CopyToFtp(string sourceDirectory, FtpFolder ftpFolder) 
+        public FileFilter CopyToFtp(string sourceDirectory, FtpDirectory ftpDir) 
         {
-            using (FtpConnection ftp = new FtpConnection("ftpserver", "username", "password")) {
+            using (FtpConnection ftpConnection = new FtpConnection(ftpDir.Host, ftpDir.Port, ftpDir.Username, ftpDir.Password))
+            {
+                ftpConnection.Open();
+                ftpConnection.Login();
                 foreach (WrappedFileSystemInfo fileSystemInfo in GetFilesAndFolders(sourceDirectory)) {
-                    if (fileSystemInfo is WrappedDirectoryInfo) {
-                        var combinedPath = Path.Combine(ftpFolder.Folder, fileSystemInfo.PathWithoutBaseDirectory);
-                        if (!ftp.DirectoryExists(combinedPath)) {
-                            ftp.CreateDirectory(combinedPath);
-                        }
+                    if (fileSystemInfo is WrappedDirectoryInfo) 
+                    {
+                        var combinedPath = Path.Combine(ftpDir.BaseDirectory, fileSystemInfo.PathWithoutBaseDirectory);
+                        if (!ftpConnection.DirectoryExists(combinedPath))
+                            ftpConnection.CreateDirectory(combinedPath);
+                        
                     }
-                    else {
-                        if (!ftp.DirectoryExists(ftpFolder.Folder))
-                        {
-                            ftp.CreateDirectory(ftpFolder.Folder);
+                    else 
+                    {
+                        if (!ftpConnection.DirectoryExists(ftpDir.BaseDirectory)) {
+                            ftpConnection.CreateDirectory(ftpDir.BaseDirectory);
+                        
                         }
-
-                        var combinedPath = Path.Combine(ftpFolder.Folder, fileSystemInfo.PathWithoutBaseDirectory);
+                            
+                        var combinedPath = Path.Combine(ftpDir.BaseDirectory, fileSystemInfo.PathWithoutBaseDirectory);
                         var newPath = Path.GetDirectoryName(combinedPath);
-                        if (!ftp.DirectoryExists(newPath)) {
-                            ftp.CreateDirectory(newPath);
-                            ftp.SetCurrentDirectory("newPath");
+                        if (!ftpConnection.DirectoryExists(newPath))
+                        {
+                            ftpConnection.CreateDirectory(newPath);
                         }
-                        ftp.PutFile(fileSystemInfo.FullName);
-                    }
 
+                        ftpConnection.SetCurrentDirectory(newPath);
+                        ftpConnection.PutFile(fileSystemInfo.FullName);
+                    }
                 }
             }
 
             return this;
         }
 
-        public void Delete(FtpFolder ftpFolder)
+        public static string PathWithoutBaseDirectory(string path, string baseDir)
         {
-            using (FtpConnection ftpConnection = new FtpConnection(ftpFolder.ServerAddress, ftpFolder.Username, ftpFolder.Password)) 
+            return path.Substring(baseDir.Length).Trim('/').Trim('\\'); 
+        }
+
+        public FileFilter CopyFromFtp(FtpDirectory ftpDir, string destinationDirectory)
+        {
+            using (FtpConnection ftpConnection = new FtpConnection(ftpDir.Host, ftpDir.Port, ftpDir.Username, ftpDir.Password))
             {
                 ftpConnection.Open();
-                foreach (WrappedFileSystemInfo fileSystemInfo in GetFtpFilesAndFolders(ftpFolder.Folder,ftpConnection)) {
-                    fileSystemInfo.Delete();
+                ftpConnection.Login();
+                foreach (string ftpPath in GetFtpFilesAndFolders(ftpDir.BaseDirectory, ftpConnection))
+                {
+                    if (ftpConnection.DirectoryExists(ftpPath))
+                    {
+                        var combinedPath = Path.Combine(destinationDirectory, PathWithoutBaseDirectory(ftpPath, ftpDir.BaseDirectory));
+                        if (!Directory.Exists(combinedPath))
+                        {
+                            Directory.CreateDirectory(combinedPath);
+                        }
+                    }
+                    else
+                    {
+                        if (!Directory.Exists(destinationDirectory))
+                        {
+                            Directory.CreateDirectory(destinationDirectory);
+                        }
+
+                        var combinedPath = Path.Combine(destinationDirectory, PathWithoutBaseDirectory(ftpPath, ftpDir.BaseDirectory));
+                        var newPath = Path.GetDirectoryName(combinedPath);
+                        if (!Directory.Exists(newPath))
+                        {
+                            Directory.CreateDirectory(newPath);
+                        }
+                        ftpConnection.GetFile(ftpPath, combinedPath, false);
+                        
+                    }
                 }
                 ftpConnection.Close();
-                ftpConnection.Dispose();
+            }
+
+            return this;
+        }
+
+        public void DeleteFromFtp(FtpDirectory ftpDir)
+        {
+
+            using (FtpConnection ftpConnection = new FtpConnection(ftpDir.Host, ftpDir.Port, ftpDir.Username, ftpDir.Password)) 
+            {
+                ftpConnection.Open();
+                ftpConnection.Login();
+
+                
+                foreach (var path in GetFtpFilesAndFolders(ftpDir.BaseDirectory,ftpConnection)) 
+                {
+                    Console.WriteLine(path);
+                    if (ftpConnection.DirectoryExists(path))
+                        RemoveDirectoryEvenIfNotEmpty(ftpConnection, path);
+                    else {
+                        ftpConnection.RemoveFile(path);
+                    }
+                }
+
+                ftpConnection.Close();
             }
 
         }
 
-        public void DeleteFromFtp(string sourceDirectory)
+        private static void RemoveDirectoryEvenIfNotEmpty(FtpConnection ftpConnection, string startDirectory)
+        {
+            List<string> directories = new List<string>();
+            directories.Add(startDirectory);
+            int index = 0;
+            while (index < directories.Count)
+            {
+                string currentDirectory = directories[index];
+                directories.AddRange(ftpConnection.GetDirectories(currentDirectory).Select(dir => currentDirectory + dir.Name + "/"));
+                index++;
+            }
+
+
+            directories.Reverse();
+            List<string> fileNames = new List<string>();
+            foreach (var directory in directories)
+            {
+                foreach (var ftpFile in ftpConnection.GetFiles(directory))
+                {
+                    string fullPath = directory + ftpFile.Name;
+                    if (ftpConnection.FileExists(fullPath))
+                        ftpConnection.RemoveFile(fullPath);
+                }
+
+                foreach (var ftpDir in ftpConnection.GetDirectories(directory))
+                {
+                    string fullPath = directory + ftpDir.Name;
+                    if (ftpConnection.DirectoryExists(fullPath))
+                        ftpConnection.RemoveDirectory(fullPath);
+                }
+            }
+        }
+
+        public void Delete(string sourceDirectory)
         {
             foreach (WrappedFileSystemInfo fileSystemInfo in GetFilesAndFolders(sourceDirectory))
             {
@@ -156,29 +248,19 @@ namespace Phantom.Core.Builtins
             }
         }
 
-        public IEnumerable<WrappedFileSystemInfo> GetFtpFilesAndFolders(string baseFolder, FtpConnection ftpConnection) 
+        public IEnumerable<string > GetFtpFilesAndFolders(string baseDir, FtpConnection ftpConnection) 
         {
             FtpFileAdaptionLayer ftpFileAdaptionLayer = new FtpFileAdaptionLayer(ftpConnection);
-
+            
             var includedFiles = from include in includes
-                                from file in Glob.GlobResults(ftpFileAdaptionLayer, FixupPath(baseFolder, include), 0)
+                                from file in Glob.GlobResults(ftpFileAdaptionLayer, FixupPath(baseDir, include), 0)
                                 select file;
 
             var excludesFiles = from exclude in excludes
-                                from file in Glob.GlobResults(ftpFileAdaptionLayer, FixupPath(baseFolder, exclude), 0)
+                                from file in Glob.GlobResults(ftpFileAdaptionLayer, FixupPath(baseDir, exclude), 0)
                                 select file;
-
-            foreach (var path in includedFiles.Except(excludesFiles))
-            {
-                if (Directory.Exists(path))
-                {
-                    yield return new WrappedDirectoryInfo(baseFolder, path, false);
-                }
-                else
-                {
-                    yield return new WrappedFileInfo(baseFolder, path, false);
-                }
-            }
+            
+            return includedFiles.Except(excludesFiles);
         }
     }
 }
