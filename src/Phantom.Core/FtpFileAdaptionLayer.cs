@@ -26,7 +26,7 @@ namespace Phantom.Core
 
         public virtual string[] GetDirectories(string path, string searchPattern)
         {
-            return _ftpConnection.GetDirectories(path).Select(info => path.TrimEnd('.') + info.Name).ToArray();
+            return _ftpConnection.GetDirectories(path).Select(info => path.EndsWith("/") ? path.TrimEnd('.') + info.Name : path.TrimEnd('.') + "/" + info.Name).ToArray();
         }
 
         public virtual string GetFileName(string file)
@@ -36,7 +36,7 @@ namespace Phantom.Core
 
         public string[] GetFiles(string path, string searchPattern)
         {
-            return _ftpConnection.GetFiles(path).Select(file => path.TrimEnd('.') + file.Name).ToArray();
+            return _ftpConnection.GetFiles(path).Select(file => path.EndsWith("/") ? path.TrimEnd('.') + file.Name : path.TrimEnd('.') + "/" + file.Name).ToArray();
         }
        
     }

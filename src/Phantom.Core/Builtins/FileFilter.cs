@@ -43,6 +43,7 @@ namespace Phantom.Core.Builtins
             foreach (WrappedFileSystemInfo fileSystemInfo in GetFilesAndFolders(sourceDirectory)) 
             {
                 if(fileSystemInfo is WrappedDirectoryInfo) {
+                
                     var combinedPath = Path.Combine(destinationDirectory, fileSystemInfo.PathWithoutBaseDirectory);
                     if (!Directory.Exists(combinedPath))
                     {
@@ -111,7 +112,9 @@ namespace Phantom.Core.Builtins
 
         public static string PathWithoutBaseDirectory(string path, string baseDir)
         {
-            return path.Substring(baseDir.Length).Trim('/').Trim('\\'); 
+            if(path.StartsWith(baseDir))
+                return path.Substring(baseDir.Length).Trim('/').Trim('\\');
+            return path;
         }
 
         public FileFilter CopyFromFtp(FtpDirectory ftpDir, string destinationDirectory)
@@ -124,7 +127,7 @@ namespace Phantom.Core.Builtins
                 {
                     if (ftpConnection.DirectoryExists(ftpPath))
                     {
-                        var combinedPath = Path.Combine(destinationDirectory, PathWithoutBaseDirectory(ftpPath, ftpDir.BaseDirectory));
+                        var combinedPath = Path.Combine(destinationDirectory, PathWithoutBaseDirectory(ftpPath, ftpDir.BaseDirectory).TrimStart('/'));
                         if (!Directory.Exists(combinedPath))
                         {
                             Directory.CreateDirectory(combinedPath);
@@ -137,12 +140,13 @@ namespace Phantom.Core.Builtins
                             Directory.CreateDirectory(destinationDirectory);
                         }
 
-                        var combinedPath = Path.Combine(destinationDirectory, PathWithoutBaseDirectory(ftpPath, ftpDir.BaseDirectory));
+                        var combinedPath = Path.Combine(destinationDirectory, PathWithoutBaseDirectory(ftpPath, ftpDir.BaseDirectory).TrimStart('/'));
                         var newPath = Path.GetDirectoryName(combinedPath);
                         if (!Directory.Exists(newPath))
                         {
                             Directory.CreateDirectory(newPath);
                         }
+
                         ftpConnection.GetFile(ftpPath, combinedPath, false);
                         
                     }
@@ -161,14 +165,15 @@ namespace Phantom.Core.Builtins
                 ftpConnection.Open();
                 ftpConnection.Login();
 
-                
-                foreach (var path in GetFtpFilesAndFolders(ftpDir.BaseDirectory,ftpConnection)) 
+                var paths = GetFtpFilesAndFolders(ftpDir.BaseDirectory, ftpConnection);
+                paths.Reverse();
+                foreach (var path in paths) 
                 {
-                    Console.WriteLine(path);
-                    if (ftpConnection.DirectoryExists(path))
-                        RemoveDirectoryEvenIfNotEmpty(ftpConnection, path);
+                    var fullPath = ftpDir.BaseDirectory + path;
+                    if (ftpConnection.DirectoryExists(fullPath))
+                        RemoveDirectoryEvenIfNotEmpty(ftpConnection, fullPath);
                     else {
-                        ftpConnection.RemoveFile(path);
+                        ftpConnection.RemoveFile(fullPath);
                     }
                 }
 
@@ -179,6 +184,9 @@ namespace Phantom.Core.Builtins
 
         private static void RemoveDirectoryEvenIfNotEmpty(FtpConnection ftpConnection, string startDirectory)
         {
+            if (!startDirectory.EndsWith("/"))
+                startDirectory += "/";
+
             List<string> directories = new List<string>();
             directories.Add(startDirectory);
             int index = 0;
@@ -208,6 +216,9 @@ namespace Phantom.Core.Builtins
                         ftpConnection.RemoveDirectory(fullPath);
                 }
             }
+
+            if (startDirectory != "./" && ftpConnection.DirectoryExists(startDirectory))
+                ftpConnection.RemoveDirectory(startDirectory);
         }
 
         public void Delete(string sourceDirectory)
@@ -259,8 +270,11 @@ namespace Phantom.Core.Builtins
             var excludesFiles = from exclude in excludes
                                 from file in Glob.GlobResults(ftpFileAdaptionLayer, FixupPath(baseDir, exclude), 0)
                                 select file;
-            
-            return includedFiles.Except(excludesFiles);
+
+
+            var fixedExcludes = excludesFiles.Select(s => s.TrimStart('.'));
+           
+            return includedFiles.Except(fixedExcludes);
         }
     }
 }

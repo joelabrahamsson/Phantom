@@ -65,9 +65,3 @@ target coverage:
     .project = "Phantom"
     .reportDirectory = "build/Coverage"
     
-desc "Copy files from FolderA to FolderB"
-target FileFilterTest:
-  with FileFilter():
-    .Include("**/*")
-    .Exclude("EmptySubFolder")
-    .CopyToDirectory("FolderA", "FolderB")
